@@ -32,7 +32,7 @@
             transition: background-color 0.3s ease;
         }
 
-        /* Speed Control UI */
+        /* Controls UI */
         .controls {
             position: absolute;
             top: 20px;
@@ -50,7 +50,6 @@
             transition: color 0.3s ease;
         }
 
-        /* Adjust control label colors when background turns white */
         body.light-bg .controls {
             color: #111;
             background: rgba(0, 0, 0, 0.05);
@@ -70,20 +69,6 @@
             cursor: pointer;
         }
 
-        .label-wrapper {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            min-width: 130px;
-        }
-
-        .val-display {
-            display: inline-block;
-            min-width: 48px;
-            text-align: right;
-            font-variant-numeric: tabular-nums;
-        }
-
         .controls select, .controls button, .controls input[type="number"] {
             background: rgba(0, 0, 0, 0.6);
             color: white;
@@ -96,19 +81,14 @@
             transition: background 0.2s, border-color 0.2s, color 0.2s;
         }
 
-        .controls input[type="range"] {
-            cursor: pointer;
-            flex: 1;
+        .controls input[type="number"] {
+            width: 80px;
+            cursor: text;
         }
 
-        .controls input[type="range"]:disabled {
+        .controls input[type="number"]:disabled {
             opacity: 0.3;
             cursor: not-allowed;
-        }
-
-        .controls input[type="number"] {
-            width: 70px;
-            cursor: text;
         }
 
         body.light-bg .controls select, 
@@ -280,7 +260,7 @@
             animation: var(--container-anim);
         }
 
-        /* rotator to keep the spinner rotating smoothly without any unnatural movement */
+        /* rotator to keep the spinner rotating smoothly */
         .ytp-spinner-rotator {
             position: absolute;
             width: 100%;
@@ -288,7 +268,6 @@
             animation: var(--rotator-anim);
         }
 
-        /* Combine Ease Spin & Rainbow Hue Cycle */
         .ytp-spinner-rotator.rainbow {
             animation: var(--rotator-anim), ytp-spinner-rainbow 6s linear infinite;
         }
@@ -298,27 +277,15 @@
             to   { filter: hue-rotate(360deg); }
         }
 
-        /* left and right half of the spinner */
         .ytp-spinner-left, .ytp-spinner-right {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             overflow: hidden;
         }
 
-        /* something for the left half */
-        .ytp-spinner-left {
-            right: 49%;
-        }
+        .ytp-spinner-left { right: 49%; }
+        .ytp-spinner-right { left: 49%; }
 
-        /* something for the right half */
-        .ytp-spinner-right {
-            left: 49%;
-        }
-
-        /* circle */
         .ytp-spinner-circle {
             box-sizing: border-box;
             position: absolute;
@@ -330,30 +297,22 @@
             border-width: var(--spinner-stroke);
         }
 
-        /* left half circle things */
         .ytp-spinner-left .ytp-spinner-circle {
-            left: 0;
-            right: -100%;
+            left: 0; right: -100%;
             border-right-color: transparent;
             animation: var(--arcs-anim-left);
         }
 
-        /* right half circle things */
         .ytp-spinner-right .ytp-spinner-circle {
-            left: -100%;
-            right: 0;
+            left: -100%; right: 0;
             border-left-color: transparent;
             animation: var(--arcs-anim-right);
         }
 
-        /* Constant ytp-spinner-container spin */
         @keyframes ytp-spinner-linspin {
-            to {
-                transform: rotate(1turn);
-            }
+            to { transform: rotate(1turn); }
         }
 
-        /* for keeping the spin not weird looking */
         @keyframes ytp-spinner-easespin {
             12.5% { transform: rotate(135deg); }
             25%   { transform: rotate(270deg); }
@@ -365,14 +324,12 @@
             to    { transform: rotate(3turn); }
         }
 
-        /* left half of the spinner stretching and shrinking */
         @keyframes ytp-spinner-left-spin {
             0%   { transform: rotate(130deg); }
             50%  { transform: rotate(-5deg); }
             to   { transform: rotate(130deg); }
         }
 
-        /* right half of the spinner stretching and shrinking */
         @keyframes ytp-right-spin {
             0%   { transform: rotate(-130deg); }
             50%  { transform: rotate(5deg); }
@@ -403,19 +360,13 @@
         </div>
 
         <div class="controls-row">
-            <div class="label-wrapper">
-                <label for="size-slider">Spinner Size:</label>
-                <span id="size-val" class="val-display">80px</span>
-            </div>
-            <input type="range" id="size-slider" min="50" max="800" value="80" step="5">
+            <label for="size-input">Spinner Size (px):</label>
+            <input type="number" id="size-input" min="10" max="2000" value="80" step="1">
         </div>
 
         <div class="controls-row">
-            <div class="label-wrapper">
-                <label for="stroke-slider">Stroke Width:</label>
-                <span id="stroke-val" class="val-display">8px</span>
-            </div>
-            <input type="range" id="stroke-slider" min="5" max="80" value="8" step="1" disabled>
+            <label for="stroke-input">Stroke Width (px):</label>
+            <input type="number" id="stroke-input" min="1" max="500" value="8" step="1" disabled>
         </div>
 
         <div class="controls-row">
@@ -510,7 +461,7 @@
         </div>
     </div>
 
-    <!-- the spinner -->
+    <!-- Spinner -->
     <div class="ytp-spinner" id="loader">
         <div class="ytp-spinner-container">
             <div class="ytp-spinner-rotator" id="spinner-rotator">
@@ -522,7 +473,6 @@
                 </div>
             </div>
         </div>
-        <div class="ytp-spinner-message" style="display: none;">If playback doesn't begin shortly, try restarting your device.</div>
     </div>
 
     <script>
@@ -532,10 +482,8 @@
         const colorPicker = document.getElementById('color-picker');
         const toggleRainbow = document.getElementById('toggle-rainbow');
 
-        const sizeSlider = document.getElementById('size-slider');
-        const sizeValDisplay = document.getElementById('size-val');
-        const strokeSlider = document.getElementById('stroke-slider');
-        const strokeValDisplay = document.getElementById('stroke-val');
+        const sizeInput = document.getElementById('size-input');
+        const strokeInput = document.getElementById('stroke-input');
         const toggleProportionalStroke = document.getElementById('toggle-proportional-stroke');
 
         const loader = document.getElementById('loader');
@@ -556,11 +504,6 @@
         const closeModalBtn = document.getElementById('close-modal-btn');
         const closeModalX = document.getElementById('close-modal-x');
         const copyExportBtn = document.getElementById('copy-export-btn');
-
-        function updateStrokeBounds() {
-            strokeSlider.min = parseFloat(sizeSlider.min) / 10;
-            strokeSlider.max = parseFloat(sizeSlider.max) / 10;
-        }
 
         function restartAnimation() {
             loader.style.display = 'none';
@@ -586,18 +529,21 @@
 
         function updateSpinnerStroke(strokePx) {
             const stroke = parseFloat(strokePx);
-            document.documentElement.style.setProperty('--spinner-stroke', `${stroke}px`);
-            strokeValDisplay.textContent = `${Math.round(stroke)}px`;
-            strokeSlider.value = stroke;
+            if (!isNaN(stroke)) {
+                document.documentElement.style.setProperty('--spinner-stroke', `${stroke}px`);
+                strokeInput.value = stroke;
+            }
         }
 
         function updateSpinnerSize(sizePx) {
             const size = parseFloat(sizePx);
-            document.documentElement.style.setProperty('--spinner-size', `${size}px`);
-            sizeValDisplay.textContent = `${size}px`;
+            if (!isNaN(size)) {
+                document.documentElement.style.setProperty('--spinner-size', `${size}px`);
+                sizeInput.value = size;
 
-            if (toggleProportionalStroke.checked) {
-                updateSpinnerStroke(size / 10);
+                if (toggleProportionalStroke.checked) {
+                    updateSpinnerStroke(size / 10);
+                }
             }
         }
 
@@ -646,8 +592,8 @@
         }
 
         function generateExportCode() {
-            const size = sizeSlider.value;
-            const stroke = strokeSlider.value;
+            const size = sizeInput.value || 80;
+            const stroke = strokeInput.value || 8;
             const speed = getCurrentSpeed();
             const color = toggleRainbow.checked ? '#ff0000' : colorPicker.value;
             
@@ -862,23 +808,20 @@
             });
         });
 
-        // Initialize Bounds
-        updateStrokeBounds();
-
-        // Size & Stroke Controls
-        sizeSlider.addEventListener('input', (e) => {
+        // Size & Stroke Textbox Input Handlers
+        sizeInput.addEventListener('input', (e) => {
             updateSpinnerSize(e.target.value);
         });
 
-        strokeSlider.addEventListener('input', (e) => {
+        strokeInput.addEventListener('input', (e) => {
             updateSpinnerStroke(e.target.value);
         });
 
         toggleProportionalStroke.addEventListener('change', (e) => {
             const isChecked = e.target.checked;
-            strokeSlider.disabled = isChecked;
+            strokeInput.disabled = isChecked;
             if (isChecked) {
-                const currentSize = parseFloat(sizeSlider.value);
+                const currentSize = parseFloat(sizeInput.value);
                 updateSpinnerStroke(currentSize / 10);
             }
         });
