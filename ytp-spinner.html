@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>YouTube Player Spinner Generator</title>
+    <style>
+        :root {
+            --speed: 1;
+            --spinner-size: 500px;
+            --spinner-stroke: 50px;
+            --spinner-color: #dddddd;
+
+            /* Easing Variables */
+            --container-easing: linear;
+            --rotator-easing: cubic-bezier(.4, 0, .2, 1);
+            --arcs-left-easing: cubic-bezier(.4, 0, .2, 1);
+            --arcs-right-easing: cubic-bezier(.4, 0, .2, 1);
+
+            /* Animation Variables */
+            --container-anim: ytp-spinner-linspin calc(1.5682352941176s * var(--speed)) var(--container-easing) infinite;
+            --rotator-anim: ytp-spinner-easespin calc(5332ms * var(--speed)) var(--rotator-easing) infinite both;
+            --arcs-anim-left: ytp-spinner-left-spin calc(1333ms * var(--speed)) var(--arcs-left-easing) infinite both;
+            --arcs-anim-right: ytp-right-spin calc(1333ms * var(--speed)) var(--arcs-right-easing) infinite both;
+        }
+
+        body {
+            background-color: black;
+            margin: 0; 
+            height: 100vh; 
+            overflow: hidden;
+            font-family: sans-serif;
+            transition: background-color 0.3s ease;
+        }
+
+        /* Speed Control UI */
+        .controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 100;
+            background: rgba(128, 128, 128, 0.2);
+            backdrop-filter: blur(10px);
+            padding: 16px 20px;
+            border-radius: 8px;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            transition: color 0.3s ease;
+        }
+
+        /* Adjust control label colors when background turns white */
+        body.light-bg .controls {
+            color: #111;
+            background: rgba(0, 0, 0, 0.05);
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .controls label {
+            font-size: 14px;
+            font-weight: bold;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .label-wrapper {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            min-width: 130px;
+        }
+
+        .val-display {
+            display: inline-block;
+            min-width: 48px;
+            text-align: right;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .controls select, .controls button, .controls input[type="number"] {
+            background: rgba(0, 0, 0, 0.6);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            padding: 6px 10px;
+            font-size: 13px;
+            cursor: pointer;
+            outline: none;
+            transition: background 0.2s, border-color 0.2s, color 0.2s;
+        }
+
+        .controls input[type="range"] {
+            cursor: pointer;
+            flex: 1;
+        }
+
+        .controls input[type="range"]:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .controls input[type="number"] {
+            width: 70px;
+            cursor: text;
+        }
+
+        body.light-bg .controls select, 
+        body.light-bg .controls button,
+        body.light-bg .controls input[type="number"] {
+            background: rgba(255, 255, 255, 0.8);
+            color: #111;
+            border-color: rgba(0, 0, 0, 0.2);
+        }
+
+        .controls input[type="color"] {
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 4px;
+            background: rgba(0, 0, 0, 0.6);
+            width: 36px;
+            height: 32px;
+            padding: 2px;
+            cursor: pointer;
+            transition: opacity 0.2s, cursor 0.2s;
+        }
+
+        .controls input[type="color"]:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .controls button:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.6);
+        }
+
+        body.light-bg .controls button:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .controls select:focus, .controls button:focus, .controls input[type="number"]:focus {
+            border-color: #3ea6ff;
+        }
+
+        .toggle-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+            border-top: 1px solid rgba(128, 128, 128, 0.4);
+            padding-top: 8px;
+        }
+
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 13px;
+        }
+
+        .toggle-label-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .toggle-item input[type="checkbox"] {
+            cursor: pointer;
+            width: 16px;
+            height: 16px;
+        }
+
+        /* Modal Export Styles */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.75);
+            backdrop-filter: blur(5px);
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .modal-content {
+            background: #1e1e1e;
+            color: #fff;
+            width: 80%;
+            max-width: 800px;
+            max-height: 85vh;
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .modal-header {
+            padding: 12px 20px;
+            background: #252526;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .modal-body {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-body textarea {
+            width: 100%;
+            height: 380px;
+            background: #141414;
+            color: #4ec9b0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 13px;
+            padding: 12px;
+            box-sizing: border-box;
+            resize: vertical;
+            outline: none;
+            white-space: pre;
+        }
+
+        .modal-footer {
+            padding: 12px 20px;
+            background: #252526;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+
+        /* spinner size */
+        .ytp-spinner {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: var(--spinner-size);
+            margin-left: calc(var(--spinner-size) / -2);
+            z-index: 18;
+        }
+
+        /* spinner container that rotates constantly */
+        .ytp-spinner-container {
+            pointer-events: none;
+            position: absolute;
+            width: 100%;
+            padding-bottom: 100%;
+            top: 50%;
+            left: 50%;
+            margin-top: -50%;
+            margin-left: -50%;
+            animation: var(--container-anim);
+        }
+
+        /* rotator to keep the spinner rotating smoothly without any unnatural movement */
+        .ytp-spinner-rotator {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            animation: var(--rotator-anim);
+        }
+
+        /* Combine Ease Spin & Rainbow Hue Cycle */
+        .ytp-spinner-rotator.rainbow {
+            animation: var(--rotator-anim), ytp-spinner-rainbow 6s linear infinite;
+        }
+
+        @keyframes ytp-spinner-rainbow {
+            from { filter: hue-rotate(0deg); }
+            to   { filter: hue-rotate(360deg); }
+        }
+
+        /* left and right half of the spinner */
+        .ytp-spinner-left, .ytp-spinner-right {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            overflow: hidden;
+        }
+
+        /* something for the left half */
+        .ytp-spinner-left {
+            right: 49%;
+        }
+
+        /* something for the right half */
+        .ytp-spinner-right {
+            left: 49%;
+        }
+
+        /* circle */
+        .ytp-spinner-circle {
+            box-sizing: border-box;
+            position: absolute;
+            width: 200%;
+            height: 100%;
+            border-style: solid;
+            border-color: var(--spinner-color) var(--spinner-color) transparent;
+            border-radius: 50%;
+            border-width: var(--spinner-stroke);
+        }
+
+        /* left half circle things */
+        .ytp-spinner-left .ytp-spinner-circle {
+            left: 0;
+            right: -100%;
+            border-right-color: transparent;
+            animation: var(--arcs-anim-left);
+        }
+
+        /* right half circle things */
+        .ytp-spinner-right .ytp-spinner-circle {
+            left: -100%;
+            right: 0;
+            border-left-color: transparent;
+            animation: var(--arcs-anim-right);
+        }
+
+        /* Constant ytp-spinner-container spin */
+        @keyframes ytp-spinner-linspin {
+            to {
+                transform: rotate(1turn);
+            }
+        }
+
+        /* for keeping the spin not weird looking */
+        @keyframes ytp-spinner-easespin {
+            12.5% { transform: rotate(135deg); }
+            25%   { transform: rotate(270deg); }
+            37.5% { transform: rotate(405deg); }
+            50%   { transform: rotate(540deg); }
+            62.5% { transform: rotate(675deg); }
+            75%   { transform: rotate(810deg); }
+            87.5% { transform: rotate(945deg); }
+            to    { transform: rotate(3turn); }
+        }
+
+        /* left half of the spinner stretching and shrinking */
+        @keyframes ytp-spinner-left-spin {
+            0%   { transform: rotate(130deg); }
+            50%  { transform: rotate(-5deg); }
+            to   { transform: rotate(130deg); }
+        }
+
+        /* right half of the spinner stretching and shrinking */
+        @keyframes ytp-right-spin {
+            0%   { transform: rotate(-130deg); }
+            50%  { transform: rotate(5deg); }
+            to   { transform: rotate(-130deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Controls UI -->
+    <div class="controls">
+        <div class="controls-row">
+            <label for="speed-select">Duration Multiplier:</label>
+            <select id="speed-select">
+                <option value="0.5">0.5x (Faster)</option>
+                <option value="1" selected>1x (Normal)</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2x</option>
+                <option value="5">5x</option>
+                <option value="10">10x</option>
+                <option value="25">25x</option>
+                <option value="50">50x (Slower)</option>
+                <option value="custom">Custom</option>
+            </select>
+            <input type="number" id="custom-speed" min="0.01" step="0.1" value="1" style="display: none;" placeholder="e.g. 3">
+            <button id="reset-btn">Reset Animation</button>
+        </div>
+
+        <div class="controls-row">
+            <div class="label-wrapper">
+                <label for="size-slider">Spinner Size:</label>
+                <span id="size-val" class="val-display">500px</span>
+            </div>
+            <input type="range" id="size-slider" min="50" max="800" value="500" step="5">
+        </div>
+
+        <div class="controls-row">
+            <div class="label-wrapper">
+                <label for="stroke-slider">Stroke Width:</label>
+                <span id="stroke-val" class="val-display">50px</span>
+            </div>
+            <input type="range" id="stroke-slider" min="5" max="80" value="50" step="1" disabled>
+        </div>
+
+        <div class="controls-row">
+            <div class="toggle-label-wrapper">
+                <input type="checkbox" id="toggle-proportional-stroke" checked>
+                <label for="toggle-proportional-stroke">Use spinner size / 10 for stroke width</label>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <label for="color-picker">Color:</label>
+            <input type="color" id="color-picker" value="#dddddd">
+            <div class="toggle-label-wrapper" style="margin-left: 8px;">
+                <input type="checkbox" id="toggle-rainbow">
+                <label for="toggle-rainbow">Rainbow Cycle</label>
+            </div>
+        </div>
+
+        <div class="toggle-group">
+            <div class="toggle-item">
+                <div class="toggle-label-wrapper">
+                    <input type="checkbox" id="toggle-container" checked>
+                    <label for="toggle-container">Container Linear Spin (linspin)</label>
+                </div>
+                <select id="easing-container">
+                    <option value="linear" selected>linear</option>
+                    <option value="ease">ease</option>
+                    <option value="ease-in">ease-in</option>
+                    <option value="ease-out">ease-out</option>
+                    <option value="ease-in-out">ease-in-out</option>
+                    <option value="cubic-bezier(.4, 0, .2, 1)">YouTube Bezier</option>
+                    <option value="cubic-bezier(0.68, -0.55, 0.265, 1.55)">Bounce / Overshoot</option>
+                    <option value="steps(8, end)">Steps (8)</option>
+                </select>
+            </div>
+
+            <div class="toggle-item">
+                <div class="toggle-label-wrapper">
+                    <input type="checkbox" id="toggle-rotator" checked>
+                    <label for="toggle-rotator">Rotator Ease Spin (easespin)</label>
+                </div>
+                <select id="easing-rotator">
+                    <option value="linear">linear</option>
+                    <option value="ease">ease</option>
+                    <option value="ease-in">ease-in</option>
+                    <option value="ease-out">ease-out</option>
+                    <option value="ease-in-out">ease-in-out</option>
+                    <option value="cubic-bezier(.4, 0, .2, 1)" selected>YouTube Bezier</option>
+                    <option value="cubic-bezier(0.68, -0.55, 0.265, 1.55)">Bounce / Overshoot</option>
+                    <option value="steps(8, end)">Steps (8)</option>
+                </select>
+            </div>
+
+            <div class="toggle-item">
+                <div class="toggle-label-wrapper">
+                    <input type="checkbox" id="toggle-arcs" checked>
+                    <label for="toggle-arcs">Left & Right Arcs Stretch/Shrink</label>
+                </div>
+                <select id="easing-arcs">
+                    <option value="linear">linear</option>
+                    <option value="ease">ease</option>
+                    <option value="ease-in">ease-in</option>
+                    <option value="ease-out">ease-out</option>
+                    <option value="ease-in-out">ease-in-out</option>
+                    <option value="cubic-bezier(.4, 0, .2, 1)" selected>YouTube Bezier</option>
+                    <option value="cubic-bezier(0.68, -0.55, 0.265, 1.55)">Bounce / Overshoot</option>
+                    <option value="steps(8, end)">Steps (8)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="controls-row" style="margin-top: 4px; gap: 8px;">
+            <button id="export-btn" style="flex: 1; font-weight: bold; background: #3ea6ff; border: none; padding: 8px;">Export HTML & CSS</button>
+            <button id="download-html-btn" style="flex: 1; font-weight: bold; background: #2ea043; border: none; padding: 8px;">Generate HTML</button>
+        </div>
+    </div>
+
+    <!-- Export Modal -->
+    <div class="modal-overlay" id="export-modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Exported HTML & CSS Code</h3>
+                <button id="close-modal-x" style="background:none; border:none; color:#aaa; font-size:18px; cursor:pointer;">&times;</button>
+            </div>
+            <div class="modal-body">
+                <textarea id="export-textarea" readonly></textarea>
+            </div>
+            <div class="modal-footer">
+                <button id="copy-export-btn" style="background: #2ea043; border: none;">Copy to Clipboard</button>
+                <button id="close-modal-btn">Close</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- the spinner -->
+    <div class="ytp-spinner" id="loader">
+        <div class="ytp-spinner-container">
+            <div class="ytp-spinner-rotator" id="spinner-rotator">
+                <div class="ytp-spinner-left">
+                    <div class="ytp-spinner-circle"></div>
+                </div>
+                <div class="ytp-spinner-right">
+                    <div class="ytp-spinner-circle"></div>
+                </div>
+            </div>
+        </div>
+        <div class="ytp-spinner-message" style="display: none;">If playback doesn't begin shortly, try restarting your device.</div>
+    </div>
+
+    <script>
+        const speedSelect = document.getElementById('speed-select');
+        const customSpeedInput = document.getElementById('custom-speed');
+        const resetBtn = document.getElementById('reset-btn');
+        const colorPicker = document.getElementById('color-picker');
+        const toggleRainbow = document.getElementById('toggle-rainbow');
+
+        const sizeSlider = document.getElementById('size-slider');
+        const sizeValDisplay = document.getElementById('size-val');
+        const strokeSlider = document.getElementById('stroke-slider');
+        const strokeValDisplay = document.getElementById('stroke-val');
+        const toggleProportionalStroke = document.getElementById('toggle-proportional-stroke');
+
+        const loader = document.getElementById('loader');
+        const spinnerRotator = document.getElementById('spinner-rotator');
+
+        const toggleContainer = document.getElementById('toggle-container');
+        const toggleRotator = document.getElementById('toggle-rotator');
+        const toggleArcs = document.getElementById('toggle-arcs');
+
+        const easingContainer = document.getElementById('easing-container');
+        const easingRotator = document.getElementById('easing-rotator');
+        const easingArcs = document.getElementById('easing-arcs');
+
+        const exportBtn = document.getElementById('export-btn');
+        const downloadHtmlBtn = document.getElementById('download-html-btn');
+        const exportModal = document.getElementById('export-modal');
+        const exportTextarea = document.getElementById('export-textarea');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const closeModalX = document.getElementById('close-modal-x');
+        const copyExportBtn = document.getElementById('copy-export-btn');
+
+        function updateStrokeBounds() {
+            strokeSlider.min = parseFloat(sizeSlider.min) / 10;
+            strokeSlider.max = parseFloat(sizeSlider.max) / 10;
+        }
+
+        function restartAnimation() {
+            loader.style.display = 'none';
+            setTimeout(() => {
+                loader.style.display = '';
+            }, 10);
+        }
+
+        function getCurrentSpeed() {
+            if (speedSelect.value === 'custom') {
+                return parseFloat(customSpeedInput.value) || 1;
+            }
+            return parseFloat(speedSelect.value) || 1;
+        }
+
+        function updateSpeed(val) {
+            const numVal = parseFloat(val);
+            if (!isNaN(numVal) && numVal > 0) {
+                document.documentElement.style.setProperty('--speed', numVal);
+                restartAnimation();
+            }
+        }
+
+        function updateSpinnerStroke(strokePx) {
+            const stroke = parseFloat(strokePx);
+            document.documentElement.style.setProperty('--spinner-stroke', `${stroke}px`);
+            strokeValDisplay.textContent = `${Math.round(stroke)}px`;
+            strokeSlider.value = stroke;
+        }
+
+        function updateSpinnerSize(sizePx) {
+            const size = parseFloat(sizePx);
+            document.documentElement.style.setProperty('--spinner-size', `${size}px`);
+            sizeValDisplay.textContent = `${size}px`;
+
+            if (toggleProportionalStroke.checked) {
+                updateSpinnerStroke(size / 10);
+            }
+        }
+
+        function isColorDark(hex) {
+            const r = parseInt(hex.slice(1, 3), 16) / 255;
+            const g = parseInt(hex.slice(3, 5), 16) / 255;
+            const b = parseInt(hex.slice(5, 7), 16) / 255;
+            const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+            return luminance < 0.05;
+        }
+
+        function updateBackgroundForColor(hexColor) {
+            if (isColorDark(hexColor)) {
+                document.body.style.backgroundColor = 'white';
+                document.body.classList.add('light-bg');
+            } else {
+                document.body.style.backgroundColor = 'black';
+                document.body.classList.remove('light-bg');
+            }
+        }
+
+        function updateContainerAnimation() {
+            const anim = toggleContainer.checked 
+                ? 'ytp-spinner-linspin calc(1.5682352941176s * var(--speed)) var(--container-easing) infinite' 
+                : 'none';
+            document.documentElement.style.setProperty('--container-anim', anim);
+        }
+
+        function updateRotatorAnimation() {
+            const anim = toggleRotator.checked 
+                ? 'ytp-spinner-easespin calc(5332ms * var(--speed)) var(--rotator-easing) infinite both' 
+                : 'none';
+            document.documentElement.style.setProperty('--rotator-anim', anim);
+        }
+
+        function updateArcsAnimation() {
+            const leftAnim = toggleArcs.checked 
+                ? 'ytp-spinner-left-spin calc(1333ms * var(--speed)) var(--arcs-left-easing) infinite both' 
+                : 'none';
+            const rightAnim = toggleArcs.checked 
+                ? 'ytp-right-spin calc(1333ms * var(--speed)) var(--arcs-right-easing) infinite both' 
+                : 'none';
+
+            document.documentElement.style.setProperty('--arcs-anim-left', leftAnim);
+            document.documentElement.style.setProperty('--arcs-anim-right', rightAnim);
+        }
+
+        function generateExportCode() {
+            const size = sizeSlider.value;
+            const stroke = strokeSlider.value;
+            const speed = getCurrentSpeed();
+            const color = toggleRainbow.checked ? '#ff0000' : colorPicker.value;
+            
+            const containerEase = easingContainer.value;
+            const rotatorEase = easingRotator.value;
+            const arcsEase = easingArcs.value;
+
+            const htmlCode = `<div class="ytp-spinner">
+    <div class="ytp-spinner-container">
+        <div class="ytp-spinner-rotator${toggleRainbow.checked ? ' rainbow' : ''}">
+            <div class="ytp-spinner-left">
+                <div class="ytp-spinner-circle"></div>
+            </div>
+            <div class="ytp-spinner-right">
+                <div class="ytp-spinner-circle"></div>
+            </div>
+        </div>
+    </div>
+</div>`;
+
+            let cssCode = `<style>
+:root {
+    --speed: ${speed};
+    --spinner-size: ${size}px;
+    --spinner-stroke: ${stroke}px;
+    --spinner-color: ${color};
+
+    --container-easing: ${containerEase};
+    --rotator-easing: ${rotatorEase};
+    --arcs-left-easing: ${arcsEase};
+    --arcs-right-easing: ${arcsEase};
+
+    --container-anim: ${toggleContainer.checked ? 'ytp-spinner-linspin calc(1.5682352941176s * var(--speed)) var(--container-easing) infinite' : 'none'};
+    --rotator-anim: ${toggleRotator.checked ? 'ytp-spinner-easespin calc(5332ms * var(--speed)) var(--rotator-easing) infinite both' : 'none'};
+    --arcs-anim-left: ${toggleArcs.checked ? 'ytp-spinner-left-spin calc(1333ms * var(--speed)) var(--arcs-left-easing) infinite both' : 'none'};
+    --arcs-anim-right: ${toggleArcs.checked ? 'ytp-right-spin calc(1333ms * var(--speed)) var(--arcs-right-easing) infinite both' : 'none'};
+}
+
+.ytp-spinner {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: var(--spinner-size);
+    margin-left: calc(var(--spinner-size) / -2);
+    z-index: 18;
+}
+
+.ytp-spinner-container {
+    pointer-events: none;
+    position: absolute;
+    width: 100%;
+    padding-bottom: 100%;
+    top: 50%;
+    left: 50%;
+    margin-top: -50%;
+    margin-left: -50%;
+    animation: var(--container-anim);
+}
+
+.ytp-spinner-rotator {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    animation: var(--rotator-anim);
+}`;
+
+            if (toggleRainbow.checked) {
+                cssCode += `\n\n.ytp-spinner-rotator.rainbow {
+    animation: var(--rotator-anim), ytp-spinner-rainbow 6s linear infinite;
+}
+
+@keyframes ytp-spinner-rainbow {
+    from { filter: hue-rotate(0deg); }
+    to   { filter: hue-rotate(360deg); }
+}`;
+            }
+
+            cssCode += `\n\n.ytp-spinner-left, .ytp-spinner-right {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    overflow: hidden;
+}
+
+.ytp-spinner-left { right: 49%; }
+.ytp-spinner-right { left: 49%; }
+
+.ytp-spinner-circle {
+    box-sizing: border-box;
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    border-style: solid;
+    border-color: var(--spinner-color) var(--spinner-color) transparent;
+    border-radius: 50%;
+    border-width: var(--spinner-stroke);
+}
+
+.ytp-spinner-left .ytp-spinner-circle {
+    left: 0; right: -100%;
+    border-right-color: transparent;
+    animation: var(--arcs-anim-left);
+}
+
+.ytp-spinner-right .ytp-spinner-circle {
+    left: -100%; right: 0;
+    border-left-color: transparent;
+    animation: var(--arcs-anim-right);
+}`;
+
+            if (toggleContainer.checked) {
+                cssCode += `\n\n@keyframes ytp-spinner-linspin {
+    to { transform: rotate(1turn); }
+}`;
+            }
+
+            if (toggleRotator.checked) {
+                cssCode += `\n\n@keyframes ytp-spinner-easespin {
+    12.5% { transform: rotate(135deg); }
+    25%   { transform: rotate(270deg); }
+    37.5% { transform: rotate(405deg); }
+    50%   { transform: rotate(540deg); }
+    62.5% { transform: rotate(675deg); }
+    75%   { transform: rotate(810deg); }
+    87.5% { transform: rotate(945deg); }
+    to    { transform: rotate(3turn); }
+}`;
+            }
+
+            if (toggleArcs.checked) {
+                cssCode += `\n\n@keyframes ytp-spinner-left-spin {
+    0%   { transform: rotate(130deg); }
+    50%  { transform: rotate(-5deg); }
+    to   { transform: rotate(130deg); }
+}
+
+@keyframes ytp-right-spin {
+    0%   { transform: rotate(-130deg); }
+    50%  { transform: rotate(5deg); }
+    to   { transform: rotate(-130deg); }
+}`;
+            }
+
+            cssCode += `\n</style>`;
+
+            return { htmlCode, cssCode };
+        }
+
+        function generateFullDocument() {
+            const { htmlCode, cssCode } = generateExportCode();
+            const bgColor = document.body.style.backgroundColor || 'black';
+            return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Spinner</title>
+    ${cssCode}
+    <style>
+        body {
+            background-color: ${bgColor};
+            margin: 0;
+            height: 100vh;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    ${htmlCode}
+</body>
+</html>`;
+        }
+
+        // Modal Handlers
+        exportBtn.addEventListener('click', () => {
+            const { htmlCode, cssCode } = generateExportCode();
+            exportTextarea.value = `<!-- HTML -->\n${htmlCode}\n\n<!-- CSS -->\n${cssCode}`;
+            exportModal.classList.add('active');
+        });
+
+        // Download HTML File Handler
+        downloadHtmlBtn.addEventListener('click', () => {
+            const fullHtmlContent = generateFullDocument();
+            const blob = new Blob([fullHtmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'ytp-spinner.html';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        const closeModal = () => {
+            exportModal.classList.remove('active');
+            copyExportBtn.textContent = 'Copy to Clipboard';
+            copyExportBtn.style.background = '#2ea043';
+        };
+
+        closeModalBtn.addEventListener('click', closeModal);
+        closeModalX.addEventListener('click', closeModal);
+        exportModal.addEventListener('click', (e) => {
+            if (e.target === exportModal) closeModal();
+        });
+
+        copyExportBtn.addEventListener('click', () => {
+            exportTextarea.select();
+            navigator.clipboard.writeText(exportTextarea.value).then(() => {
+                copyExportBtn.textContent = 'Copied!';
+                copyExportBtn.style.background = '#1f6feb';
+            });
+        });
+
+        // Initialize Bounds
+        updateStrokeBounds();
+
+        // Size & Stroke Controls
+        sizeSlider.addEventListener('input', (e) => {
+            updateSpinnerSize(e.target.value);
+        });
+
+        strokeSlider.addEventListener('input', (e) => {
+            updateSpinnerStroke(e.target.value);
+        });
+
+        toggleProportionalStroke.addEventListener('change', (e) => {
+            const isChecked = e.target.checked;
+            strokeSlider.disabled = isChecked;
+            if (isChecked) {
+                const currentSize = parseFloat(sizeSlider.value);
+                updateSpinnerStroke(currentSize / 10);
+            }
+        });
+
+        // Dropdown Speed Selection
+        speedSelect.addEventListener('change', (e) => {
+            if (e.target.value === 'custom') {
+                customSpeedInput.style.display = 'inline-block';
+                updateSpeed(customSpeedInput.value);
+            } else {
+                customSpeedInput.style.display = 'none';
+                updateSpeed(e.target.value);
+            }
+        });
+
+        customSpeedInput.addEventListener('input', (e) => {
+            updateSpeed(e.target.value);
+        });
+
+        resetBtn.addEventListener('click', () => {
+            restartAnimation();
+        });
+
+        // Color Picker
+        colorPicker.addEventListener('input', (e) => {
+            const hexColor = e.target.value;
+            document.documentElement.style.setProperty('--spinner-color', hexColor);
+            updateBackgroundForColor(hexColor);
+        });
+
+        // Rainbow Toggle Handler
+        toggleRainbow.addEventListener('change', (e) => {
+            const isRainbow = e.target.checked;
+            colorPicker.disabled = isRainbow;
+
+            if (isRainbow) {
+                spinnerRotator.classList.add('rainbow');
+                document.documentElement.style.setProperty('--spinner-color', '#ff0000');
+                document.body.style.backgroundColor = 'black';
+                document.body.classList.remove('light-bg');
+            } else {
+                spinnerRotator.classList.remove('rainbow');
+                const hexColor = colorPicker.value;
+                document.documentElement.style.setProperty('--spinner-color', hexColor);
+                updateBackgroundForColor(hexColor);
+            }
+        });
+
+        // Animation Toggles
+        toggleContainer.addEventListener('change', updateContainerAnimation);
+        toggleRotator.addEventListener('change', updateRotatorAnimation);
+        toggleArcs.addEventListener('change', updateArcsAnimation);
+
+        // Easing Selectors
+        easingContainer.addEventListener('change', (e) => {
+            document.documentElement.style.setProperty('--container-easing', e.target.value);
+            updateContainerAnimation();
+        });
+
+        easingRotator.addEventListener('change', (e) => {
+            document.documentElement.style.setProperty('--rotator-easing', e.target.value);
+            updateRotatorAnimation();
+        });
+
+        easingArcs.addEventListener('change', (e) => {
+            document.documentElement.style.setProperty('--arcs-left-easing', e.target.value);
+            document.documentElement.style.setProperty('--arcs-right-easing', e.target.value);
+            updateArcsAnimation();
+        });
+    </script>
+</body>
+</html>
